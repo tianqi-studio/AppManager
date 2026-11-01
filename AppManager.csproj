@@ -1,0 +1,99 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>AppManager</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PlatformTarget>x64</PlatformTarget>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>Assets\App.ico</ApplicationIcon>
+    <AssemblyName>AppManager</AssemblyName>
+    <AssemblyTitle>应用收纳器</AssemblyTitle>
+    <Product>应用收纳器</Product>
+    <Version>1.0.0</Version>
+    <InformationalVersion>1.0.0</InformationalVersion>
+
+    <!-- 体积优化：只编译/复制中英文语言资源，其余几十种语言资源不再生成 -->
+    <SatelliteResourceLanguages>zh-CN;en</SatelliteResourceLanguages>
+
+    <!-- 体积优化：Release 发布不携带调试符号文件（.pdb）与调试属性 -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+
+    <!-- 性能优化：Release 开启 IL 优化与 TieredCompilation（分层编译，冷启动快速 + 热路径 JIT 优化） -->
+    <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\App.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      体积优化：不使用 Microsoft.WindowsAppSDK 元包，因为它会带入 Widgets / AI / ML
+      （ONNX Runtime、DirectML 等约 45 MB）以及本项目完全未使用的组件。
+      这里只引用 WinUI、自包含运行时和文字渲染实际需要的组件包。
+    -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="1.8.260803003" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Runtime" Version="1.8.260921001" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.DWrite" Version="1.8.25122902" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
+  </ItemGroup>
+
+  <Target Name="TrimUILanguages" AfterTargets="Build" Condition="Exists('$(MSBuildProjectDirectory)\trim-languages.ps1')">
+    <!-- 每次构建后自动删除多余语言资源文件夹,仅保留中英文,控制输出体积。 -->
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\trim-languages.ps1&quot; -OutDir &quot;$(OutDir.TrimEnd('\'))&quot;" />
+  </Target>
+
+  <Target Name="TrimPublishLanguages" AfterTargets="Publish" Condition="Exists('$(MSBuildProjectDirectory)\trim-languages.ps1')">
+    <!-- publish 会从 SDK MSIX 重新复制语言资源，需要在发布目录再裁剪一次。 -->
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\trim-languages.ps1&quot; -OutDir &quot;$(PublishDir.TrimEnd('\'))&quot;" />
+  </Target>
+
+  <!--
+    修复 WinUI 3 未打包应用的已知发布缺陷：dotnet publish 只发布 SDK 的 PRI，
+    不会把应用自身的 AppManager.pri / *.xbf 加入 ResolvedFileToPublish。
+    这里从 build 输出补复制，否则发布后的程序启动时会找不到 XAML 资源。
+  -->
+  <Target Name="CopyXamlResourcesToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <_XamlPublishFiles Include="$(TargetDir)**\*.xbf" />
+      <_XamlPublishFiles Include="$(TargetDir)$(ProjectPriFileName)" Condition="Exists('$(TargetDir)$(ProjectPriFileName)')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_XamlPublishFiles)"
+          DestinationFiles="@(_XamlPublishFiles->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!--
+    体积优化：WindowsAppSDK.Runtime 的完整 MSIX 会把 Windows ML（ONNX Runtime + DirectML）、
+    AI 和 Widgets 一并复制到自包含输出，本项目完全未使用这些 API。
+    在 SDK 复制负载前把对应文件加入排除列表，既能缩小 build 输出，也能缩小 publish 输出。
+  -->
+  <Target Name="ExcludeUnusedWindowsAppSdkRuntime"
+          BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromMsix"
+          DependsOnTargets="GetExtractMicrosoftWindowsAppSDKMsixFilesInputs;ExtractMicrosoftWindowsAppSDKMsixFiles">
+    <ItemGroup>
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\onnxruntime*.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\DirectML.dll" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\Microsoft.Windows.AI.*" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\Microsoft.Windows.Widgets.*" />
+      <MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\NpuDetect\**\*" />
+    </ItemGroup>
+    <Message Importance="low" Text="已排除未使用的 WindowsAppSDK 组件：@(MicrosoftWindowsAppSDKFilesExcluded)" />
+  </Target>
+</Project>

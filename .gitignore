@@ -1,0 +1,22 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Debug symbols and logs
+*.pdb
+*.log
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store

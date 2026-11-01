@@ -1,0 +1,33 @@
+﻿应用收纳器 v1.0.0
+=================
+
+一款基于 WinUI 3 的 Windows 应用收纳器与快速启动工具。
+
+安装与启动
+----------
+1. 解压整个文件夹到任意可写目录（不要只把 exe 单独拖出来）。
+2. 双击 AppManager.exe。
+3. 程序启动后驻留系统托盘，不会主动弹出窗口。
+4. 按 Ctrl+R 或单击托盘图标显示 / 隐藏面板。
+5. 右键托盘图标可打开设置或退出。
+
+运行环境
+--------
+- Windows 10 1809（17763）或更高版本，x64。
+- 已内置 Windows App SDK 运行时，无需安装 Windows App Runtime。
+- 如果文件名不带 selfcontained：需要安装 .NET 8 Desktop Runtime。
+- 如果文件名带 selfcontained：已内置 .NET 运行时，解压即可运行。
+
+数据位置
+--------
+- 数据：%LOCALAPPDATA%\LiquidAppManager\appdata.json
+- 日志：%LOCALAPPDATA%\LiquidAppManager\logs\app.log
+- 图标缓存：%LOCALAPPDATA%\LiquidAppManager\icons\
+
+所有数据仅保存在本机，不会上传。
+
+提示
+----
+- 右上角主题按钮按“暗色 -> 浅色 -> 跟随系统”循环切换。
+- 右键应用可多选所属分类。
+- 设置中可修改全局快捷键、窗口尺寸和主题。
