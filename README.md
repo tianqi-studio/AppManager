@@ -104,6 +104,6 @@ AppManager/
 
 ## 许可证
 
-[MIT](LICENSE) © 2026 TQstudio
+[MIT](LICENSE) © 2026 ximou
 
-感谢 OpenCode 在开发过程中的协助。
+感谢 DeepSeek 在开发过程中的协助。
