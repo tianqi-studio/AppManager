@@ -1028,9 +1028,11 @@ public sealed partial class MainWindow : Window
 
         if (!string.IsNullOrWhiteSpace(query))
         {
+            // 用 Ordinal 比较：CurrentCultureIgnoreCase 会在中文环境下做语言学
+            // 等价判断，逐字符成本明显更高，而这里只需要简单的子串匹配。
             filtered = filtered.Where(a =>
-                a.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                a.LaunchTarget.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+                a.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                a.LaunchTarget.Contains(query, StringComparison.OrdinalIgnoreCase));
         }
 
         var result = filtered

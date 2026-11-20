@@ -18,7 +18,15 @@ public enum HotkeyPreset
 {
     ControlR,
     AltR,
+
+    /// <summary>
+    /// 旧版本提供的“裸 R 键”预设。它会注册一个无修饰键的系统级热键，
+    /// 导致用户在任意程序里都无法输入字母 R，因此已停用。
+    /// 枚举值必须保留：旧数据里存的是 "BareR"，删除后反序列化会失败并触发数据重建。
+    /// 加载时由 AppDataService.Normalize 迁移为 ControlR。
+    /// </summary>
     BareR,
+
     ControlSpace
 }
 

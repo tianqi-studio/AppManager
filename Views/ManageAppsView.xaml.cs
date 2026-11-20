@@ -83,8 +83,8 @@ public sealed partial class ManageAppsView : UserControl
             var filtered = _repository.Apps
                 .Where(app =>
                     string.IsNullOrWhiteSpace(query) ||
-                    app.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                    app.LaunchTarget.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                    app.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                    app.LaunchTarget.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(app => app.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
 

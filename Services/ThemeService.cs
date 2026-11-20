@@ -73,9 +73,18 @@ public sealed class ThemeService : IDisposable
         };
     }
 
-    /// <summary>读取系统应用主题。暗色模式下 Foreground 为亮色。</summary>
+    /// <summary>读取系统应用主题。优先读设置项，失败时回落到前景色亮度。</summary>
     private bool IsSystemDark()
     {
+        // “设置 → 个性化 → 颜色 → 选择默认应用模式”对应的就是这个键，
+        // 比用 UISettings 前景色亮度判断更准确：自定义强调色、高对比度主题下
+        // 前景色可能被改写，导致误判为另一种模式。
+        var fromRegistry = TryReadSystemDarkFromRegistry();
+        if (fromRegistry.HasValue)
+        {
+            return fromRegistry.Value;
+        }
+
         if (_uiSettings is null)
         {
             return true;
@@ -92,6 +101,26 @@ public sealed class ThemeService : IDisposable
             LogService.Error("读取系统主题失败，回落到暗色。", ex);
             return true;
         }
+    }
+
+    /// <summary>AppsUseLightTheme：0 为暗色、1 为浅色；读不到时返回 null。</summary>
+    private static bool? TryReadSystemDarkFromRegistry()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            if (key?.GetValue("AppsUseLightTheme") is int value)
+            {
+                return value == 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error("读取系统主题注册表失败。", ex);
+        }
+
+        return null;
     }
 
     private void UiSettings_ColorValuesChanged(UISettings sender, object args)

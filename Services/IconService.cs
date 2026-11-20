@@ -48,18 +48,23 @@ public sealed class IconService
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(app.IconPath) && File.Exists(app.IconPath))
-        {
-            AssignImageSource(app, app.IconPath);
-            return;
-        }
-
+        // 缓存键包含源文件最后写入时间：应用更新换图标后会得到新键，
+        // 不会永远命中第一次生成的旧 PNG。
         var cachePath = GetCachePath(app);
         if (File.Exists(cachePath))
         {
             app.IconPath = cachePath;
             AssignImageSource(app, cachePath);
             return;
+        }
+
+        // 源文件已变化时先顶上旧图标，避免列表短暂空白；下面重新提取后再替换。
+        var fallbackPath = !string.IsNullOrWhiteSpace(app.IconPath) && File.Exists(app.IconPath)
+            ? app.IconPath
+            : null;
+        if (fallbackPath is not null)
+        {
+            AssignImageSource(app, fallbackPath);
         }
 
         await _semaphore.WaitAsync(cancellationToken);
@@ -77,6 +82,12 @@ public sealed class IconService
             {
                 app.IconPath = extracted;
                 AssignImageSource(app, extracted);
+                TryDeleteObsoleteCache(fallbackPath, extracted);
+            }
+            else if (fallbackPath is null)
+            {
+                // 既没有可用缓存也提取失败时清空，避免指向已被删除的文件。
+                app.IconPath = null;
             }
         }
         catch (OperationCanceledException)
@@ -90,6 +101,53 @@ public sealed class IconService
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    /// <summary>源文件最后写入时间，用于让图标缓存随应用更新自动失效。</summary>
+    private static string GetSourceStamp(AppItem app)
+    {
+        try
+        {
+            var hint = app.IconSourceHint;
+            if (!string.IsNullOrWhiteSpace(hint) && File.Exists(hint))
+            {
+                return File.GetLastWriteTimeUtc(hint).Ticks.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error($"读取图标源文件时间戳失败：{app.IconSourceHint}", ex);
+        }
+
+        return "0";
+    }
+
+    /// <summary>
+    /// 删除该应用不再引用的旧缓存文件，避免图标目录随着应用更新无限增长。
+    /// 只处理位于本应用缓存目录内的文件，不会误删系统或其他位置的图标。
+    /// </summary>
+    private static void TryDeleteObsoleteCache(string? obsoletePath, string keepPath)
+    {
+        if (string.IsNullOrWhiteSpace(obsoletePath) ||
+            string.Equals(obsoletePath, keepPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            var directory = Path.GetDirectoryName(obsoletePath);
+            if (directory is not null &&
+                directory.Equals(AppPaths.IconsDirectory, StringComparison.OrdinalIgnoreCase) &&
+                File.Exists(obsoletePath))
+            {
+                File.Delete(obsoletePath);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error($"清理旧图标缓存失败：{obsoletePath}", ex);
         }
     }
 
@@ -115,28 +173,39 @@ public sealed class IconService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (IsSupportedImage(hint))
+        try
         {
-            var imageFile = await StorageFile.GetFileFromPathAsync(hint);
-            using var imageStream = await imageFile.OpenReadAsync();
-            await EncodeToPngAsync(imageStream, destinationPath);
+            if (IsSupportedImage(hint))
+            {
+                var imageFile = await StorageFile.GetFileFromPathAsync(hint);
+                using var imageStream = await imageFile.OpenReadAsync();
+                await EncodeToPngAsync(imageStream, destinationPath);
+                return destinationPath;
+            }
+
+            // exe 和 lnk 都通过 Shell 缩略图拿应用图标。
+            var sourceFile = await StorageFile.GetFileFromPathAsync(hint);
+            using var thumbnail = await sourceFile.GetThumbnailAsync(
+                ThumbnailMode.SingleItem,
+                128,
+                ThumbnailOptions.ResizeThumbnail);
+
+            if (thumbnail is null || thumbnail.Size == 0)
+            {
+                return null;
+            }
+
+            await EncodeToPngAsync(thumbnail, destinationPath);
             return destinationPath;
         }
-
-        // exe 和 lnk 都通过 Shell 缩略图拿应用图标。
-        var sourceFile = await StorageFile.GetFileFromPathAsync(hint);
-        using var thumbnail = await sourceFile.GetThumbnailAsync(
-            ThumbnailMode.SingleItem,
-            128,
-            ThumbnailOptions.ResizeThumbnail);
-
-        if (thumbnail is null || thumbnail.Size == 0)
+        catch (UnauthorizedAccessException)
         {
+            // 部分开始菜单项位于 ACL 受限目录（例如安装程序写入 ProgramData 的工具组），
+            // StorageFile 会直接拒绝访问。这类条目往往指向已卸载的程序，
+            // 返回 null 让界面显示占位图标即可，不必每次启动都记录一条错误。
+            LogService.Info($"图标源文件不可访问，已跳过：{hint}");
             return null;
         }
-
-        await EncodeToPngAsync(thumbnail, destinationPath);
-        return destinationPath;
     }
 
     private static async Task EncodeToPngAsync(
@@ -207,7 +276,7 @@ public sealed class IconService
 
     private static string GetCachePath(AppItem app)
     {
-        var key = $"{app.Source}|{app.DedupeKey ?? app.LaunchTarget}|{app.IconSourceHint}";
+        var key = $"{app.Source}|{app.DedupeKey ?? app.LaunchTarget}|{app.IconSourceHint}|{GetSourceStamp(app)}";
         return CachePathCache.GetOrAdd(key, static k =>
         {
             var hash = SHA256.HashData(Encoding.UTF8.GetBytes(k));

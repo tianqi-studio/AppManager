@@ -182,6 +182,13 @@ public sealed class AppDataService
         state.SchemaVersion = AppState.CurrentSchemaVersion;
 
         state.Settings ??= new AppSettings();
+
+        // 旧版本允许把单键 R 注册为全局热键，会独占系统内的字母 R 输入，已停用。
+        if (state.Settings.Hotkey == HotkeyPreset.BareR)
+        {
+            state.Settings.Hotkey = HotkeyPreset.ControlR;
+        }
+
         if (state.Settings.WindowWidth is < 680 or > 1800)
         {
             state.Settings.WindowWidth = 1000;

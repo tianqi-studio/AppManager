@@ -18,11 +18,13 @@ public sealed record ScanResult(
 /// </summary>
 public sealed class AppScanService
 {
+    // 只保留指向“卸载/说明/许可”这类非应用入口的强特征词。
+    // 早期版本还包含 "文档"、"website"、"documentation"、"faq"、"support center"
+    // 等宽泛词，会把“文档助手”这类正常应用一起过滤掉，已移除。
     private static readonly string[] ExcludedNameKeywords =
     {
         "uninstall", "unins", "卸载", "remove ", "readme", "read me", "帮助文档",
-        "release notes", "更新日志", "website", "官网", "documentation", "文档",
-        "support center", "faq", "license", "许可协议", "快速入门"
+        "release notes", "更新日志", "官网", "许可协议", "快速入门"
     };
 
     private static readonly string[] ExcludedTargetKeywords =

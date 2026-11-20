@@ -63,7 +63,6 @@
                             Style="{StaticResource FieldComboBoxStyle}">
                             <ComboBoxItem Content="Ctrl + R" />
                             <ComboBoxItem Content="Alt + R" />
-                            <ComboBoxItem Content="R" />
                             <ComboBoxItem Content="Ctrl + Space" />
                         </ComboBox>
                         <TextBlock

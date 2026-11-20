@@ -15,6 +15,17 @@ public sealed partial class SettingsView : UserControl
     private readonly AppScanService _scanService;
     private readonly IconService _iconService;
 
+    /// <summary>
+    /// 下拉框顺序与枚举值不再一一对应（BareR 已停用但仍保留在枚举中兼容旧数据），
+    /// 因此用显式数组映射，避免 (int) 强转导致选中项错位。
+    /// </summary>
+    private static readonly HotkeyPreset[] HotkeyOptions =
+    {
+        HotkeyPreset.ControlR,
+        HotkeyPreset.AltR,
+        HotkeyPreset.ControlSpace
+    };
+
     private bool _syncingControls;
     private CancellationTokenSource? _scanCts;
 
@@ -49,7 +60,7 @@ public sealed partial class SettingsView : UserControl
                 ThemeMode.System => 2,
                 _ => 0
             };
-            HotkeyComboBox.SelectedIndex = (int)_repository.Settings.Hotkey;
+            HotkeyComboBox.SelectedIndex = ToHotkeyIndex(_repository.Settings.Hotkey);
             SizeComboBox.SelectedIndex = FindSizeIndex(
                 _repository.Settings.WindowWidth,
                 _repository.Settings.WindowHeight);
@@ -69,6 +80,18 @@ public sealed partial class SettingsView : UserControl
             (1200, 720) => 3,
             _ => 2
         };
+    }
+
+    /// <summary>旧数据可能仍保存已停用的裸 R 预设，统一按 Ctrl+R 处理。</summary>
+    private static HotkeyPreset NormalizeHotkey(HotkeyPreset preset)
+    {
+        return preset == HotkeyPreset.BareR ? HotkeyPreset.ControlR : preset;
+    }
+
+    private static int ToHotkeyIndex(HotkeyPreset preset)
+    {
+        var index = Array.IndexOf(HotkeyOptions, NormalizeHotkey(preset));
+        return index >= 0 ? index : 0;
     }
 
     private void ThemeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -97,8 +120,15 @@ public sealed partial class SettingsView : UserControl
             return;
         }
 
-        var preset = (HotkeyPreset)Math.Max(0, HotkeyComboBox.SelectedIndex);
-        var alreadyRegistered = _repository.Settings.Hotkey == preset && _hotkeyService.CurrentPreset == preset;
+        if (HotkeyComboBox.SelectedIndex < 0 || HotkeyComboBox.SelectedIndex >= HotkeyOptions.Length)
+        {
+            return;
+        }
+
+        var preset = HotkeyOptions[HotkeyComboBox.SelectedIndex];
+        var alreadyRegistered =
+            NormalizeHotkey(_repository.Settings.Hotkey) == preset &&
+            _hotkeyService.CurrentPreset == preset;
         if (alreadyRegistered)
         {
             UpdateHotkeyStatus();
@@ -114,7 +144,7 @@ public sealed partial class SettingsView : UserControl
 
         // 注册失败时恢复为当前实际设置，避免界面显示与实际热键不一致。
         _syncingControls = true;
-        HotkeyComboBox.SelectedIndex = (int)_repository.Settings.Hotkey;
+        HotkeyComboBox.SelectedIndex = ToHotkeyIndex(_repository.Settings.Hotkey);
         _syncingControls = false;
 
         HotkeyStatusText.Text = error;

@@ -302,7 +302,11 @@ public sealed class AppRepository
 
         app.LaunchCount++;
         app.LastLaunchedAt = DateTimeOffset.Now;
-        PersistAndNotify();
+
+        // 启动计数不改变列表结构和分类归属，因此静默保存即可。
+        // 这里如果走 PersistAndNotify，用户每点开一个应用都会触发
+        // 管理页整表重建（数百个列表项），造成可感知的卡顿。
+        PersistQuietly();
     }
 
     public void SetSelectedCategory(string categoryId)

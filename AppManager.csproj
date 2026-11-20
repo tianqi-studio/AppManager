@@ -54,8 +54,12 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4948" />
   </ItemGroup>
 
-  <Target Name="TrimUILanguages" AfterTargets="Build" Condition="Exists('$(MSBuildProjectDirectory)\trim-languages.ps1')">
-    <!-- 每次构建后自动删除多余语言资源文件夹,仅保留中英文,控制输出体积。 -->
+  <Target Name="TrimUILanguages" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And Exists('$(MSBuildProjectDirectory)\trim-languages.ps1')">
+    <!--
+      Release 构建后裁剪多余语言资源目录，仅保留中英文，控制输出体积。
+      限定 Release 是因为 Debug 下每次增量构建都删掉语言目录，下一次构建又要
+      重新复制，反而拖慢开发循环。
+    -->
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\trim-languages.ps1&quot; -OutDir &quot;$(OutDir.TrimEnd('\'))&quot;" />
   </Target>
 

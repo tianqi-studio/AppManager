@@ -122,6 +122,16 @@ public sealed class TrayIconService : IDisposable
         if (!_iconAdded)
         {
             LogService.Error($"创建托盘图标失败，Win32 错误：{Marshal.GetLastWin32Error()}");
+            return;
+        }
+
+        // NIF_SHOWTIP 只在新版通知图标协议下生效。不显式设置版本时，
+        // 悬停提示不会随快捷键变化刷新，气泡也可能退回旧样式。
+        var versionData = CreateIconData();
+        versionData.uTimeoutOrVersion = NativeMethods.NOTIFYICON_VERSION_4;
+        if (!NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_SETVERSION, ref versionData))
+        {
+            LogService.Error($"设置托盘图标协议版本失败，Win32 错误：{Marshal.GetLastWin32Error()}");
         }
     }
 

@@ -24,7 +24,8 @@ public sealed class GlobalHotkeyService : IDisposable
         {
             HotkeyPreset.ControlR => "Ctrl + R",
             HotkeyPreset.AltR => "Alt + R",
-            HotkeyPreset.BareR => "R",
+            // 裸 R 会吞掉全系统 R 键输入，已停用，实际按 Ctrl+R 注册。
+            HotkeyPreset.BareR => "Ctrl + R",
             HotkeyPreset.ControlSpace => "Ctrl + Space",
             _ => "Ctrl + R"
         };
@@ -105,7 +106,9 @@ public sealed class GlobalHotkeyService : IDisposable
         {
             HotkeyPreset.ControlR => (NativeMethods.MOD_CONTROL | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_R),
             HotkeyPreset.AltR => (NativeMethods.MOD_ALT | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_R),
-            HotkeyPreset.BareR => (NativeMethods.MOD_NOREPEAT, NativeMethods.VK_R),
+            // 不加修饰键的 RegisterHotKey 会独占该按键，任何程序都收不到 R。
+            // 旧数据可能仍带 BareR，这里强制回退为 Ctrl+R，杜绝裸键注册。
+            HotkeyPreset.BareR => (NativeMethods.MOD_CONTROL | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_R),
             HotkeyPreset.ControlSpace => (NativeMethods.MOD_CONTROL | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_SPACE),
             _ => (NativeMethods.MOD_CONTROL | NativeMethods.MOD_NOREPEAT, NativeMethods.VK_R)
         };

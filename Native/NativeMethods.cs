@@ -463,7 +463,10 @@ internal static class NativeMethods
             var color = unchecked((int)DWMWA_COLOR_NONE);
             var borderResult = DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, ref color, sizeof(int));
 
-            // Win11 22H2+ 还会绘制 1px 的可见框架边框；置 0 可避免四角出现系统亮边。
+            // Win11 22H2+ 会在窗口四周绘制 1px 的可见框架边框。
+            // 实测该属性是只读的：写入返回 E_INVALIDARG（0x80070057），
+            // 这 1px 边框由 DWM 强制绘制，无法通过这个 API 关闭。
+            // 保留调用是为了兼容可能允许写入的版本，失败不影响外观。
             var borderThickness = 0;
             var thicknessResult = DwmSetWindowAttribute(
                 hwnd,
