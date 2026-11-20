@@ -20,8 +20,8 @@
     <AssemblyName>AppManager</AssemblyName>
     <AssemblyTitle>应用收纳器</AssemblyTitle>
     <Product>应用收纳器</Product>
-    <Version>1.0.0</Version>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.0.1</Version>
+    <InformationalVersion>1.0.1</InformationalVersion>
 
     <!-- 体积优化：只编译/复制中英文语言资源，其余几十种语言资源不再生成 -->
     <SatelliteResourceLanguages>zh-CN;en</SatelliteResourceLanguages>
